@@ -19,7 +19,7 @@ def log(*msg):
 
 @app.route('/', methods=['GET'])
 def hello():
-  return 'YAML'
+  return 'Success! Now try the playground again.'
 
 @app.route('/', methods=['POST'])
 def processYaml():
@@ -45,21 +45,21 @@ def processYaml():
   if status == 124 or status == 143:
     output = "TIMEOUT - PROCESS TERMINATED\n\n" + output
 
-  resp = {
+  data = {
     'status': status,
     'output': output,
   }
 
-  return json.dumps(resp)
+  return json.dumps(data)
 
 if __name__ == "__main__":
   host = '0.0.0.0'
 
   if sys.argv[1] == 'https':
-    port = '31337'
+    port = '31331'
     ssl_context = 'adhoc'
   elif sys.argv[1] == 'http':
-    port = '1337'
+    port = '1331'
     ssl_context = None
   else:
     raise ValueError("Invalid argument '%s'" % sys.argv[1])
