@@ -47,8 +47,9 @@ Docker makes this trivial to do.
 The playground will inform you when you need to run Docker, but we'll cover it
 here.
 
-Assuming you have [Docker installed](https://docs.docker.com/get-docker/), just
-run this command from a terminal:
+Assuming you have
+<a href="https://docs.docker.com/get-docker/" target="_blank">Docker installed</a>,
+just run this command from a terminal:
 
 ```
 docker run --rm -d -p 31337:31337 yamlio/yaml-play-sandbox:{{site.sandbox_version}} https
@@ -61,8 +62,9 @@ The sandbox web server (Python Flask) uses https and has a self-signed
 certificate.
 You'll need to approve it with your browser after you start the server.
 
-Simply click <https://localhost:31337> and follow the browser instructions to
-allow it.
+Simply click
+<a href="https://localhost:31337" target="_blank">https://localhost:31337</a>
+and follow the browser instructions to allow it.
 
 After that, reload the playground page and everything should work as planned.
 
@@ -82,7 +84,8 @@ $ cd yaml-play
 $ make serve
 ```
 
-Your local playground will be served at <http://0.0.0.0:4000/main/>.
+Your local playground will be served at
+<a href="http://0.0.0.0:4000/main/" target="_blank">http://0.0.0.0:4000/main/</a>
 
 The `make serve` command will automatically start the right docker container
 for you.
