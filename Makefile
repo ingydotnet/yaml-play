@@ -75,8 +75,8 @@ site: build
 	echo $(PUBLISH_CNAME) > $(SITE)/CNAME
 	touch $(SITE)/.nojekyll
 
+# 	$(eval override DOCKER_CID = $(shell $(SANDBOX_RUN)))
 serve: files
-	# $(eval override DOCKER_CID = $(shell $(SANDBOX_RUN)))
 	RUN_OR_DOCKER_OPTIONS='--publish 4000:4000' \
 	  jekyll-runner $(JEKYLL_SERVE)
 	docker kill $(DOCKER_CID)
