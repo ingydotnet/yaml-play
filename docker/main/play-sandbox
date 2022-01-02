@@ -8,11 +8,14 @@ import subprocess
 
 dir = os.path.dirname(os.path.realpath(__file__))
 
-string = 'some data'
+required_version = open('/sandbox_version').read().rstrip()
 
 app = Flask(__name__)
 app.debug = True
 CORS(app)
+
+def log(*msg):
+  print(*msg, file=sys.stderr)
 
 @app.route('/', methods=['GET'])
 def hello():
@@ -20,24 +23,29 @@ def hello():
 
 @app.route('/', methods=['POST'])
 def processYaml():
-  cmd = request.args.get('cmd')
-  fmt = request.args.get('fmt', 'event')
+  version = request.args.get('version')
+  if version != required_version:
+    raise(Exception("Requires sandbox version %s" % required_version))
+
+  bin = request.args.get('parser')
   yaml = request.form.get('text')
 
-  command = '/usr/local/bin/' + cmd
+  command = ['timeout', '1', '/usr/local/bin/' + bin]
 
-  p = subprocess.Popen(
+  result = subprocess.run(
     command,
-    stdin=subprocess.PIPE,
+    input=yaml.encode(),
     stdout=subprocess.PIPE,
     stderr=subprocess.STDOUT,
   )
-  (output, status) = p.communicate(input=yaml.encode())
-  resp = {}
-  if status:
-    resp['error'] = output.decode()
-  else:
-    resp['output'] = output.decode()
+
+  status = result.returncode
+  output = result.stdout.decode()
+
+  resp = {
+    'status': status,
+    'output': output,
+  }
 
   return json.dumps(resp)
 

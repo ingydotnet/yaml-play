@@ -42,8 +42,8 @@
     };
 
     EatMe.init = function(arg) {
-      var $elem, code, conf, config, elem;
-      elem = arg.elem, conf = arg.conf, code = arg.code;
+      var $elem, conf, config, elem, sub_class;
+      elem = arg.elem, conf = arg.conf;
       if (elem instanceof jQuery) {
         $elem = elem;
       } else if (_.isString(elem) || elem instanceof Element) {
@@ -54,20 +54,23 @@
       if (!(config = this.configs[conf])) {
         throw "No EatMe.Config named '" + conf + "' found";
       }
+      sub_class = this;
       return $elem.each(function() {
-        var eatme;
-        eatme = new EatMe(this, config, code);
-        return EatMe.objects.push(eatme);
+        var eatme_object;
+        elem = this;
+        eatme_object = new sub_class(elem, config);
+        return sub_class.objects.push(eatme_object);
       });
     };
 
-    function EatMe(from1, conf1, code1) {
+    EatMe.prototype.init = function() {
+      return this.iteration = 0;
+    };
+
+    function EatMe(from1, conf1) {
       this.from = from1;
       this.conf = conf1;
-      this.code = code1;
-      if ((this.code != null) && (this.code.init != null)) {
-        this.code.init(this);
-      }
+      this.init();
       this.make_root();
       this.make_cols();
       this.start();
@@ -188,24 +191,27 @@
           var cm, do_calls;
           pane.cm = cm = CodeMirror.fromTextArea($textarea[0], {
             lineNumbers: true,
+            showTrailingSpace: true,
             tabSize: 4
           });
           do_calls = function() {
             var $to, i, len, ref, results;
+            self.iteration += 1;
             text = cm.getValue();
-            if ((self.code != null) && (self.code.change != null)) {
-              self.code.change(text, pane);
+            if (self.change != null) {
+              self.change(text, pane);
             }
-            results = [];
             ref = pane.calls;
+            results = [];
             for (i = 0, len = ref.length; i < len; i++) {
               call = ref[i];
               func = call[0], $to = call[1];
+              func = func.replace(/-/g, '_');
               results.push(self.call(func, text, $to));
             }
             return results;
           };
-          cm.on('change', $.debounce(400, do_calls));
+          cm.on('change', $.debounce(300, do_calls));
           return setTimeout(function() {
             do_calls();
             cm.focus();
@@ -219,23 +225,11 @@
     };
 
     EatMe.prototype.call = function(func, text, $to) {
-      var e, error, show;
-      func = func.replace(/-/g, '_');
-      try {
-        show = this.code[func](text);
-        if (_.isString(show)) {
-          show = {
-            output: show
-          };
-        }
-      } catch (error1) {
-        e = error1;
-        error = (e.stack || e.msg || e).toString();
-        show = {
-          error: error
+      return this[func](text, (function(_this) {
+        return function(resp) {
+          return _this.show($to, resp);
         };
-      }
-      return this.show($to, show);
+      })(this));
     };
 
     EatMe.prototype.show = function($pane, show) {
@@ -254,9 +248,8 @@
       }
       $show = $pane.children().last();
       if ($show[0] !== $box[0]) {
-        $show.replaceWith($box);
+        return $show.replaceWith($box);
       }
-      return this.code.show(this, $pane, show);
     };
 
     EatMe.empty = 1;
@@ -461,7 +454,7 @@
     };
 
     EatMe.prototype.make_button = function(id, $tools) {
-      var $btn, btn, func, self, that;
+      var $btn, btn, func, self;
       btn = EatMe.buttons[id];
       $btn = $("<a\n  class=\"eatme-btn-" + id + "\"\n  title=\"" + btn.name + "\">\n  <i class=\"bi-" + btn.icon + "\" />\n</a>");
       if (btn.dead == null) {
@@ -469,16 +462,10 @@
         $btn.attr({
           'href': '#'
         });
-        if (btn.code != null) {
-          that = this.code;
-          func = this.code[func];
-        } else {
-          that = this;
-          func = this[func];
-        }
         self = this;
+        func = this[func];
         $tools.on('click', ".eatme-btn-" + id, function(e) {
-          return func.call(that, $(this), e, self);
+          return func.call(self, $(this), e, self);
         });
       }
       return $btn;
@@ -575,13 +562,14 @@
 
   EatMe.Config = (function() {
     function Config(conf) {
-      var ref;
+      var ref, ref1;
       ref = [conf, this, 'top level'], this.src = ref[0], this.trg = ref[1], this.lvl = ref[2];
       this.required_slug('slug');
       this.optional_num('cols', 1, 4);
       this.required_str('html');
       this.pane = [];
       this.panes = {};
+      this.opts = (ref1 = conf.opts) != null ? ref1 : {};
       this.set_panes();
       delete this.src;
       delete this.trg;
@@ -589,11 +577,11 @@
     }
 
     Config.prototype.set_panes = function() {
-      var i, len, obj, objs, pane, ref, results1;
+      var i, len, obj, objs, pane, ref, results;
       if (((objs = this.src.pane) == null) || !_.isArray(objs)) {
         throw "EatMe.Config requires 'pane' array";
       }
-      results1 = [];
+      results = [];
       for (i = 0, len = objs.length; i < len; i++) {
         obj = objs[i];
         if (!_.isPlainObject(obj)) {
@@ -610,9 +598,9 @@
         this.optional_num('colx', 1, 4);
         this.set_type();
         this.pane.push(pane);
-        results1.push(this.panes[this.trg.slug] = pane);
+        results.push(this.panes[this.trg.slug] = pane);
       }
-      return results1;
+      return results;
     };
 
     Config.prototype.set_type = function() {

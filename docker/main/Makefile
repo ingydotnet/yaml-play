@@ -1,4 +1,6 @@
-DOCKER_TAG := 0.1.0
+include ../../Config.mk
+
+DOCKER_TAG := $(SANDBOX_VERSION)
 DOCKER_NAME := yaml-play-sandbox
 
 include ../common.mk

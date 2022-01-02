@@ -4,8 +4,10 @@ RUN apk update \
  && apk add \
         bash \
         build-base \
+        cargo \
         curl \
         git \
+        libffi \
         libffi-dev \
         m4 \
         musl-dev \
@@ -22,11 +24,11 @@ RUN apk update \
 
 RUN apk upgrade musl
 
-RUN sed -i -e 's/v3\.14/v3.12/g' /etc/apk/repositories
-
-RUN apk update
-
-RUN apk add cargo=1.44.0-r0
+# RUN sed -i -e 's/v3\.15/v3.12/g' /etc/apk/repositories
+# 
+# RUN apk update
+# 
+# RUN apk add cargo=1.44.0-r0
 
 RUN pip3 install wheel
 
@@ -38,6 +40,7 @@ RUN pip3 install \
  && true
 
 RUN mkdir -p /export/usr/lib/python3.9/site-packages \
- && cp -Pr /usr/lib/python3.9/site-packages/* \
-           /export/usr/lib/python3.9/site-packages/ \
+ && cp -Pr \
+        /usr/lib/python3.9/site-packages/* \
+        /export/usr/lib/python3.9/site-packages/ \
  && true

@@ -1,11 +1,21 @@
 (function() {
-  window.Playground = (function() {
-    function Playground() {}
+  var extend = function(child, parent) { for (var key in parent) { if (hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; },
+    hasProp = {}.hasOwnProperty;
 
-    Playground.init = function(eatme) {
+  window.Playground = (function(superClass) {
+    extend(Playground, superClass);
+
+    function Playground() {
+      return Playground.__super__.constructor.apply(this, arguments);
+    }
+
+    Playground.prototype.init = function() {
       var base64, e, params;
+      Playground.__super__.init.apply(this, arguments);
+      this.status = {};
+      this.current = -1;
       if (navigator.clipboard) {
-        eatme.add_button('copy-tsv', {
+        this.add_button('copy-tsv', {
           name: 'Copy to TSV',
           icon: 'segmented-nav'
         }, 2);
@@ -14,7 +24,7 @@
       if (params.has('input')) {
         base64 = params.get('input').replace(/-/g, '+').replace(/_/g, '/');
         try {
-          eatme.input = decodeURIComponent(escape(atob(base64)));
+          this.input = decodeURIComponent(escape(atob(base64)));
         } catch (error1) {
           e = error1;
           console.log(base64);
@@ -24,24 +34,26 @@
       return $(window).keydown((function(_this) {
         return function(e) {
           if (e.ctrlKey && e.keyCode === 13) {
-            return _this.copy_tsv(null, e, eatme);
+            return _this.copy_tsv(null, e);
           }
         };
       })(this));
     };
 
-    Playground.copy_tsv = function(btn, e, eatme) {
+    Playground.prototype.copy_tsv = function(btn) {
       var tsv;
-      tsv = this.make_tsv(eatme);
+      tsv = this.make_tsv();
       return navigator.clipboard.writeText(tsv);
     };
 
-    Playground.make_tsv = function(eatme) {
-      var $panes, fields, play, refparser, tree, yaml;
-      $panes = eatme.$panes;
+    Playground.prototype.parsers = ['refparse', 'refhs', 'dotnet', 'goyaml', 'hsyaml', 'libfyaml', 'libyaml', 'luayaml', 'nimyaml', 'npmyaml', 'ppyaml', 'pyyaml', 'ruamel', 'snake'];
+
+    Playground.prototype.make_tsv = function() {
+      var $panes, fields, j, len, parser, play, ref, refparse, tree, yaml;
+      $panes = this.$panes;
       yaml = $panes['yaml-input'][0].cm.getValue();
-      tree = $panes['refparser'][0].$output.text();
-      refparser = tree;
+      tree = $panes['refparse'][0].$output.text();
+      refparse = tree;
       play = this.state_url(yaml);
       yaml = this.escape(yaml);
       yaml = '"' + yaml.replace(/"/g, '""') + '"';
@@ -52,90 +64,68 @@
         tree = '"' + tree.replace(/"/g, '""') + '"';
       }
       fields = [play, '', '', yaml, tree];
-      fields.push.apply(fields, this.results(eatme, refparser));
+      ref = this.parsers;
+      for (j = 0, len = ref.length; j < len; j++) {
+        parser = ref[j];
+        fields.push(this.status[parser]);
+      }
       return fields.join("\t");
     };
 
-    Playground.results = function(eatme, expect) {
-      var j, len, npm, parser, parsers, result, results, yeast;
-      parsers = ['libyaml', 'libfyaml', 'yamlpp', 'npmyamlmaster', 'pyyaml', 'goyaml', 'nimyaml', 'hsyaml', 'snakeyaml', 'ruamel', 'yamldotnet'];
-      results = [''];
-      yeast = eatme.$panes['hsrefyeast'][0].$output.text();
-      npm = eatme.$panes['libyaml'][0].$output.text();
-      if (yeast === '') {
-        results.push(expect === '' ? '' : 'x');
-      } else {
-        results.push(expect !== '' ? '' : 'x');
+    Playground.prototype.show = function($pane, data) {
+      var $box, check, error, output, pane, slug;
+      Playground.__super__.show.call(this, $pane, data);
+      if (!this.conf.opts.status) {
+        return;
       }
-      for (j = 0, len = parsers.length; j < len; j++) {
-        parser = parsers[j];
-        result = eatme.$panes[parser][0].$output.text().replace(/^=COMMENT .*\n?/mg, '');
-        if (result === expect || result === expect.replace(/\s+(\{\}|\[\])$/mg, '')) {
-          results.push('');
-        } else {
-          if (result = eatme.$panes[parser][0].$error.text()) {
-            result = result.replace(/^[^-+=].*\n?/gm, '');
-            if (result === expect || result === expect.replace(/\s+(\{\}|\[\])$/mg, '')) {
-              results.push('');
-            } else {
-              results.push('x');
-            }
-          } else {
-            results.push('x');
-          }
-        }
-      }
-      return results;
-    };
-
-    Playground.show = function(eatme, $pane, data) {
-      var $box, error, pane, slug, text;
       pane = $pane[0];
       pane.$output.css('border-top', 'none');
       pane.$error.css('border-top', 'none');
       slug = pane.eatme.slug;
-      if (slug === 'yamlcpp') {
-        return;
-      }
+      output = data.output || '';
+      error = data.error || '';
       $box = null;
-      if (data.error) {
+      if (error) {
         $box = pane.$error;
-      } else if (data.output) {
+      } else if (output) {
         $box = pane.$output;
       } else {
         return;
       }
-      text = pane.$output.text();
-      if (text.length === 0 && (error = pane.$error.text()).match(/^\+STR/m)) {
-        text = error.replace(/^[^-+=].*\n?/mg, '');
-        if (!text.match(/^-STR/m)) {
-          text = '';
-        }
-      }
-      text = text.replace(/\s+(\{\}|\[\])$/mg, '').replace(/^=COMMENT .*\n?/mg, '').replace(/^([-+]DOC).+/mg, '$1');
-      if (slug === 'refparser') {
-        this.refparser = text;
-        setTimeout((function(_this) {
-          return function() {
-            return delete _this.refparser;
-          };
-        })(this), 5000);
-      }
-      if (slug === 'hsrefyeast') {
-        if (text.match(/=(ERR|REST)/)) {
-          text = '';
-        } else {
-          text = this.refparser;
-        }
-      }
-      if ((this.refparser != null) && text === this.refparser) {
+      output = output.replace(/\s+(\{\}|\[\])$/mg, '').replace(/^=COMMENT .*\n?/mg, '').replace(/^[^-+=].*\n?/gm, '');
+      this.status[slug] = '';
+      if (slug === 'refparse') {
+        this.current = this.iteration;
+        this.refparse = output;
         return $box.css('border-top', '5px solid green');
       } else {
-        return $box.css('border-top', '5px solid red');
+        check = (function(_this) {
+          return function() {
+            if (_this.current !== _this.iteration) {
+              setTimeout(check, 100);
+              return;
+            }
+            if (slug === 'refhs') {
+              if (error) {
+                output = '';
+              } else {
+                output = _this.refparse;
+              }
+            }
+            if ((_this.refparse != null) && output === _this.refparse) {
+              $box.css('border-top', '5px solid green');
+              return _this.status[slug] = '';
+            } else {
+              $box.css('border-top', '5px solid red');
+              return _this.status[slug] = 'x';
+            }
+          };
+        })(this);
+        return check();
       }
     };
 
-    Playground.escape = function(text) {
+    Playground.prototype.escape = function(text) {
       text = text.replace(/(\ +)$/mg, (function(_this) {
         return function(m, $1) {
           return _this.repeat("␣", $1.length);
@@ -160,7 +150,7 @@
       return text;
     };
 
-    Playground.indent = function(text) {
+    Playground.prototype.indent = function(text) {
       var i;
       i = 0;
       text = text.replace(/^(.)/mg, (function(_this) {
@@ -177,7 +167,7 @@
       return text.replace(/\n+$/, '');
     };
 
-    Playground.repeat = function(text, n) {
+    Playground.prototype.repeat = function(text, n) {
       var i, str;
       str = '';
       i = 0;
@@ -187,48 +177,39 @@
       return str;
     };
 
-    Playground.change = function(text, pane) {
+    Playground.prototype.change = function(text, pane) {
       var newurl;
       newurl = this.state_url(text);
       return window.history.replaceState(null, null, newurl);
     };
 
-    Playground.state_url = function(text) {
+    Playground.prototype.state_url = function(text) {
       var base64, origin, pathname, ref;
       ref = window.location, origin = ref.origin, pathname = ref.pathname;
       base64 = btoa(unescape(encodeURIComponent(text))).replace(/\+/g, '-').replace(/\//g, '_');
       return "" + origin + pathname + "?input=" + base64;
     };
 
-    Playground.js_refparser_event = function(text) {
+    Playground.prototype.refparse_event = function(text) {
       var parser;
       parser = new Parser(new TestReceiver);
       parser.parse(text);
       return parser.receiver.output();
     };
 
-    Playground.npmyamlmaster_json = function(text) {
+    Playground.prototype.npmyaml_json = function(text) {
       var data;
       data = npmYAML.parse(text);
       return JSON.stringify(data, null, 2);
     };
 
-    Playground.npmyamlmaster_event = function(text) {
-      var error, events, ref;
-      ref = npmYAML.events(text), events = ref.events, error = ref.error;
-      if (error != null) {
-        throw error;
-      }
-      return events.join("\n") + "\n";
-    };
-
-    Playground.npmyaml1_json = function(text) {
+    Playground.prototype.npmyaml1_json = function(text) {
       var data;
       data = npmYAML1.parse(text);
       return JSON.stringify(data, null, 2);
     };
 
-    Playground.npmyaml1_event = function(text) {
+    Playground.prototype.npmyaml1_event = function(text) {
       var error, events, ref;
       ref = npmYAML1.events(text), events = ref.events, error = ref.error;
       if (error != null) {
@@ -237,13 +218,13 @@
       return events.join("\n");
     };
 
-    Playground.npmyaml2_json = function(text) {
+    Playground.prototype.npmyaml2_json = function(text) {
       var data;
       data = npmYAML2.parse(text);
       return JSON.stringify(data, null, 2);
     };
 
-    Playground.npmyaml2_event = function(text) {
+    Playground.prototype.npmyaml2_event = function(text) {
       var error, events, ref;
       ref = npmYAML2.events(text), events = ref.events, error = ref.error;
       if (error != null) {
@@ -252,15 +233,15 @@
       return events.join("\n");
     };
 
-    Playground.npmjsyaml_json = function(text) {
+    Playground.prototype.npmjsyaml_json = function(text) {
       var data;
       data = npmJSYAML.load(text);
       return JSON.stringify(data, null, 2);
     };
 
-    Playground.hs_refparser_yeast = function(text) {
+    Playground.prototype.refhs_yeast = function(text) {
       var value;
-      value = this.localhost_server(text, 'cmd=hs-reference-yeast');
+      value = this.localhost_server(text, 'yaml-test-parse-refhs');
       if (_.isString(value) && value.match(/\ =(?:ERR\ |REST)\|/)) {
         throw value;
       } else {
@@ -268,66 +249,60 @@
       }
     };
 
-    Playground.yamlpp_event = function(text) {
-      return this.sandbox_event(text, 'cmd=perl-pp-event');
+    Playground.prototype.dotnet_event = function(text) {
+      return this.sandbox_event(text, 'yaml-test-parse-dotnet');
     };
 
-    Playground.npmyaml_event = function(text) {
-      return this.sandbox_event(text, 'cmd=js-yaml-event');
+    Playground.prototype.goyaml_event = function(text) {
+      return this.sandbox_event(text, 'yaml-test-parse-goyaml');
     };
 
-    Playground.pyyaml_event = function(text) {
-      return this.sandbox_event(text, 'cmd=py-pyyaml-event');
+    Playground.prototype.hsyaml_event = function(text) {
+      return this.sandbox_event(text, 'yaml-test-parse-hsyaml');
     };
 
-    Playground.libyaml_event = function(text) {
-      return this.sandbox_event(text, 'cmd=c-libyaml-event');
+    Playground.prototype.libfyaml_event = function(text) {
+      return this.sandbox_event(text, 'yaml-test-parse-libfyaml');
     };
 
-    Playground.libfyaml_event = function(text) {
-      return this.sandbox_event(text, 'cmd=c-libfyaml-event');
+    Playground.prototype.libyaml_event = function(text) {
+      return this.sandbox_event(text, 'yaml-test-parse-libyaml');
     };
 
-    Playground.goyaml_event = function(text) {
-      return this.sandbox_event(text, 'cmd=go-yaml-test');
+    Playground.prototype.luayaml_event = function(text) {
+      return this.sandbox_event(text, 'yaml-test-parse-luayaml');
     };
 
-    Playground.yamlcpp_event = function(text) {
-      return this.sandbox_event(text, 'cmd=cpp-yamlcpp-event');
+    Playground.prototype.nimyaml_event = function(text) {
+      return this.sandbox_event(text, 'yaml-test-parse-nimyaml');
     };
 
-    Playground.nimyaml_event = function(text) {
-      return this.sandbox_event(text, 'cmd=nim-nimyaml-event');
+    Playground.prototype.npmyaml_event = function(text) {
+      return this.sandbox_event(text, 'yaml-test-parse-npmyaml');
     };
 
-    Playground.hsyaml_event = function(text) {
-      return this.sandbox_event(text, 'cmd=hs-hsyaml-event');
+    Playground.prototype.ppyaml_event = function(text) {
+      return this.sandbox_event(text, 'yaml-test-parse-ppyaml');
     };
 
-    Playground.snakeyaml_event = function(text) {
-      return this.sandbox_event(text, 'cmd=java-snakeyaml-event');
+    Playground.prototype.pyyaml_event = function(text) {
+      return this.sandbox_event(text, 'yaml-test-parse-pyyaml');
     };
 
-    Playground.yamldotnet_event = function(text) {
-      return this.sandbox_event(text, 'cmd=dotnet-yamldotnet-event');
+    Playground.prototype.ruamel_event = function(text) {
+      return this.sandbox_event(text, 'yaml-test-parse-ruamel');
     };
 
-    Playground.ruamel_event = function(text) {
-      return this.sandbox_event(text, 'cmd=py-ruamel-event');
+    Playground.prototype.snake_event = function(text) {
+      return this.sandbox_event(text, 'yaml-test-parse-snake');
     };
 
-    Playground.sandbox_event = function(text, args) {
-      var value;
-      value = this.localhost_server(text, args);
-      if (_.isString(value) && value.match(/^[^\+\-\=]/m)) {
-        throw value;
-      } else {
-        return value;
-      }
+    Playground.prototype.sandbox_event = function(text, parser) {
+      return this.localhost_server(text, parser);
     };
 
-    Playground.localhost_server = function(text, args) {
-      var data, e, help, loc, port, resp, scheme;
+    Playground.prototype.localhost_server = function(text, parser) {
+      var args, data, e, help, loc, port, resp, scheme, version;
       loc = window.location.href.replace(/#$/, '');
       if (window.location.href.match(/^https/)) {
         scheme = 'https';
@@ -336,6 +311,8 @@
         scheme = 'http';
         port = 1337;
       }
+      version = this.conf.opts.sandbox;
+      args = "version=" + version + "&parser=" + parser;
       try {
         resp = $.ajax({
           type: 'POST',
@@ -353,22 +330,21 @@
       if (resp.status === 200) {
         data = resp.responseJSON;
         if (data != null) {
-          if (data.error != null) {
-            throw data.error;
-          }
-          if (data.output != null) {
+          if (data.status === 0) {
             return data.output;
+          } else {
+            throw data.output;
           }
         }
       }
       help = loc.replace(/\/[^\/]+\?.*/, "/#setting-up-a-local-sandbox");
       return {
-        mark: "This pane requires a localhost sandbox server. Run:\n\n```\n$ docker run --rm -d -p " + port + ":" + port + " \\\n    yamlio/yaml-play-sandbox:0.1.0 " + scheme + "\n```\n\non the same computer as your web browser.\n\nSee " + help + ".\n\n[Chat with the YAML team](https://matrix.to/#/#chat:yaml.io)."
+        mark: "This pane requires a localhost sandbox server. Run:\n\n```\n$ docker run --rm -d -p " + port + ":" + port + " \\\n    yamlio/yaml-play-sandbox:" + version + " " + scheme + "\n```\n\non the same computer as your web browser.\n\nSee " + help + ".\n\n[Chat with the YAML team](https://matrix.to/#/#chat:yaml.io)."
       };
     };
 
     return Playground;
 
-  })();
+  })(EatMe);
 
 }).call(this);
